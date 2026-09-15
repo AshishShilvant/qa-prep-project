@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="QAPrepSuite" parallel="methods" thread-count="3">
+    <test name="LoginTests">
+        <classes>
+            <class name="com.qaprep.tests.ui.LoginTest"/>
+        </classes>
+    </test>
+    <test name="ApiTests">
+        <classes>
+            <class name="com.qaprep.tests.api.UserApiTest"/>
+        </classes>
+    </test>
+</suite>
