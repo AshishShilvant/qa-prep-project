@@ -82,3 +82,32 @@ will create its own browser; whichever threads evaluate it after an assignment s
 
 Every task's title matches the URL it asked for. Three distinct instances (1533046966, 1094744044, 1252760953), one per pool thread, each confined by the ThreadLocal  
 and each quit() on its own thread via DriverFactory.quitDriver(). No sharing, no leak, nothing to synchronise.
+
+---
+
+## DbConnectionManager.java / AccountDbTest.java
+
+- DbConnectionManager reads DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD from the environment with localhost/root/root defaults, and returns a plain
+  DriverManager connection. No pooling, no ThreadLocal — deliberately, because this suite doesn't need it (see singleThreaded note below).
+- Real MySQL, not H2/SQLite. An embedded DB proves the SQL parses; it doesn't prove the SQL behaves the same way MySQL's type coercion, locking, and
+  AUTO_INCREMENT semantics actually behave. The CI service container runs the same engine this would hit in a real environment, at the cost of a
+  health-checked startup step instead of zero setup.
+- schema.sql / seed.sql live under src/test/resources/db and are executed by AccountDbTest itself (readResource + runScript, split on ";"). No Flyway/
+  Liquibase here — the schema is two tables and won't grow; a migration tool would be the right call the moment that stops being true.
+- Every query goes through PreparedStatement, never string-concatenated SQL — table stakes for SQL-injection safety, and it's also just correct handling
+  of the DECIMAL/VARCHAR binding (setBigDecimal, setString) instead of stringifying values into the query text.
+
+Why `@Test(singleThreaded = true)` on the class
+
+testng.xml runs the suite with parallel="methods", thread-count="3" — deliberately, since it's what exposed the DriverFactory race above. AccountDbTest's
+@Test methods share one Connection field opened in @BeforeClass, and insertedTransactionIsVisibleThenRolledBack calls setAutoCommit(false) then rollback()
+on that shared connection. If TestNG scheduled this class's methods onto different threads under the suite's parallel="methods" setting, one method could
+have its rows read mid-transaction by another method on the same connection, or see autocommit toggled out from under it — the exact same class of bug
+DriverFactory's ThreadLocal exists to prevent, just one layer down. singleThreaded = true is the documented TestNG escape hatch: it pins every @Test method
+in this one class onto a single thread regardless of the suite-level parallel setting, so the shared connection is never touched by two threads at once,
+without having to give up parallel="methods" for the other two test classes in the suite.
+
+insertedTransactionIsVisibleThenRolledBack itself exists to demonstrate transaction boundaries on purpose: it inserts a row, asserts it's visible within
+the same connection/transaction, then rolls back in a finally block so the insert never becomes part of the seed data the other tests in the class assert
+against. That ordering (finally-rollback, not commit) is what keeps this test repeatable — rerun it a hundred times and ACC1002's transaction count is
+still 1 going in, every time.

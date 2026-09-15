@@ -11,4 +11,9 @@
             <class name="com.qaprep.tests.api.UserApiTest"/>
         </classes>
     </test>
+    <test name="DbTests">
+        <classes>
+            <class name="com.qaprep.tests.db.AccountDbTest"/>
+        </classes>
+    </test>
 </suite>
