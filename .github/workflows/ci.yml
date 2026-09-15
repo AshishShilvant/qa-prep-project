@@ -24,7 +24,7 @@ jobs:
           --health-timeout=5s
           --health-retries=10
 
-      env:
+    env:
         DB_HOST: 127.0.0.1
         DB_PORT: 3306
         DB_NAME: qaprep
