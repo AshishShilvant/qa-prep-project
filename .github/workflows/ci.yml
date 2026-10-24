@@ -5,6 +5,10 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
+  schedule:
+    # 02:00 IST == 20:30 UTC the previous day (cron is always UTC)
+    - cron: '30 20 * * *'
 
 jobs:
   test:
@@ -46,12 +50,24 @@ jobs:
         run: mvn -B test
 
       - name: Set up Node 20
+        if: always()
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Install Newman
+        if: always()
         run: npm install -g newman
 
       - name: Run Postman collection
+        if: always()
         run: newman run postman/collection.json -e postman/env.json
+
+      - name: Upload Surefire reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          retention-days: 14
+          if-no-files-found: warn
